@@ -20,6 +20,8 @@ command line tools for managing google apps users and groups
   4. Ignore error message (like unknown command --noauth_local_webserver)
 6. Ready. Try get user list. `user.py list your.domain.name`
 
+Tested with Python 2.7.6 only.
+
 ## Supported Operations
 
 ### Orgunits
