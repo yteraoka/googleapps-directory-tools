@@ -1,0 +1,17 @@
+[
+    {
+        "groupKey": "group1@example.com",
+        "email": "user1@example.com",
+        "role": "MANAGER"
+    },
+    {
+        "groupKey": "group1@example.com",
+        "email": "user2@example.com",
+        "role": "MEMBER"
+    },
+    {
+        "groupKey": "group2@example.com",
+        "email": "user2@example.com",
+        "role": "MEMBER"
+    }
+]

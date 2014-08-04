@@ -1,0 +1,18 @@
+[
+    {
+        "name": {
+            "givenName": "Steve",
+            "familyName": "Jobs"
+        },
+        "primaryEmail": "steve.jobs@example.com",
+        "password": "secret999"
+    },
+    {
+        "name": {
+            "givenName": "Bill",
+            "familyName": "Gates"
+        },
+        "primaryEmail": "bill.gates@example.com",
+        "password": "secret123"
+    }
+]
