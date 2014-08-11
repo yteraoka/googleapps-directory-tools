@@ -11,16 +11,17 @@ command line tools for managing google apps users and groups
   1. Create new project of select exists project
   2. Click "Create new Client ID" in Credentials tab
   3. Select "Installed application" and "Other" application type then click "Create Client ID"
-  4. Click "Download JSON"
-4. Save Downloaded JSON file to `private/client_secret.json`
-5. Run `user.py --noauth_local_webserver`
+  4. Click "Download JSON" and save downloaded JSON file to `private/client_secret.json`
+  5. Go to "API" page in left side menu
+  6. Enable "Admin SDK" and "Groups Settings API"
+4. Run `user.py --noauth_local_webserver list your.domain.name`
   1. Access displayed URL
   2. Approve request
   3. Copy and pasete the code to terminal
   4. Ignore error message (like unknown command --noauth_local_webserver)
-6. Ready. Try get user list. `user.py list your.domain.name`
+5. Ready. Try get user list. `user.py list your.domain.name`
 
-Tested with Python 2.7.6 only.
+Tested with Python 2.7.6 and 2.7.8 only.
 
 ## Supported Operations
 
