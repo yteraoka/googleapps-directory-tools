@@ -142,7 +142,6 @@ def main(argv):
         else:
             show_resource(r)
     elif command == "insert":
-        pprint.pprint(args)
         body = { 'name': args.name,
                  'parentOrgUnitPath': args.parentOrgUnitPath }
         if args.description:
