@@ -11,12 +11,12 @@ SCOPES = [
 if os.getenv('CLIENT_SECRETS'):
     CLIENT_SECRETS = os.getenv('CLIENT_SECRETS')
 else:
-    CLIENT_SECRETS = 'private/client_secrets.json'
+    CLIENT_SECRETS = 'private/client_secret.json'
 
 if os.getenv('CREDENTIALS_PATH'):
     CREDENTIALS_PATH = os.getenv('CREDENTIALS_PATH')
 else:
-    CREDENTIALS_PATH = 'credentials.dat'
+    CREDENTIALS_PATH = 'private/credential.dat'
 
 MISSING_CLIENT_SECRETS_MESSAGE = """
 WARNING: Please configure OAuth 2.0
