@@ -27,12 +27,13 @@ def show_resource(resource):
             print "nonEditableAliases: %s" % alias
 
 def show_resource_list(resources, verbose):
-    for resource in resources['groups']:
-        if verbose:
-            show_resource(resource)
-            print ""
-        else:
-            print resource['email']
+    if resources.has_key('groups'):
+        for resource in resources['groups']:
+            if verbose:
+                show_resource(resource)
+                print ""
+            else:
+                print resource['email']
 
 def main(argv):
     parser = argparse.ArgumentParser(parents=[tools.argparser])
@@ -129,8 +130,9 @@ def main(argv):
             r = sv.list(**params).execute()
 
             if args.jsonPretty or args.json:
-                for group in r['groups']:
-                    groups.append(group)
+                if r.has_key('groups'):
+                    for group in r['groups']:
+                        groups.append(group)
             else:
                 show_resource_list(r, args.verbose)
 
