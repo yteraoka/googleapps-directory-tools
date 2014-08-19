@@ -14,7 +14,7 @@ command line tools for managing google apps users and groups
   4. Click "Download JSON" and save downloaded JSON file to `private/client_secret.json`
   5. Go to "API" page in left side menu
   6. Enable "Admin SDK" and "Groups Settings API"
-4. Run `user.py --noauth_local_webserver list your.domain.name`
+4. Run `user.py --noauth_local_webserver list -d your.domain.name`
   1. Access displayed URL
   2. Approve request
   3. Copy and pasete the code to terminal
