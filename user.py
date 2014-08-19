@@ -75,7 +75,8 @@ def main(argv):
     # LIST / SEARCH
     #-------------------------------------------------------------------------
     parser_list = subparsers.add_parser('list', help='Retrieves a paginated list of either deleted users or all users in a domain')
-    parser_list.add_argument('domain', help='search domain')
+    parser_list.add_argument('-d', '--domain', help='search user by this domain')
+    parser_list.add_argument('-c', '--customer', help='search user by this customerId')
     parser_list.add_argument('-v', '--verbose', action='store_true', help='show all user data')
     parser_list.add_argument('--json', action='store_true', help='output in JSON')
     parser_list.add_argument('--jsonPretty', action='store_true', help='output in pretty JSON')
@@ -185,8 +186,11 @@ def main(argv):
         users = []
         pageToken = None
         while True:
-            params = { 'domain': args.domain }
-        
+            params = {}
+            if args.domain:
+                params['domain'] = args.domain
+            if args.customer:
+                params['customer'] = args.customer
             if args.reverse:
                 params['sortOrder'] = 'DESCENDING'
             if args.showDeleted:
@@ -199,6 +203,10 @@ def main(argv):
                 params['maxResults'] = args.maxResults
             if pageToken:
                 params['pageToken'] = pageToken
+
+            if not params.has_key('domain') and not params.has_key('customer'):
+                print "Either the customer or the domain parameter must be provided"
+                sys.exit(1)
 
             r = sv.list(**params).execute()
 
