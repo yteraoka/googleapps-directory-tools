@@ -31,7 +31,8 @@ def show_resource(resource):
     print "membersCanPostAsTheGroup:    %s" % resource['membersCanPostAsTheGroup']
     print "messageDisplayFont:          %s" % resource['messageDisplayFont']
     print "messageModerationLevel:      %s" % resource['messageModerationLevel']
-    print "primaryLanguage:             %s" % resource['primaryLanguage']
+    if resource.has_key('primaryLanguage'):
+        print "primaryLanguage:             %s" % resource['primaryLanguage']
     print "replyTo:                     %s" % resource['replyTo']
     print "sendMessageDenyNotification: %s" % resource['sendMessageDenyNotification']
     print "showInGroupDirectory:        %s" % resource['showInGroupDirectory']
