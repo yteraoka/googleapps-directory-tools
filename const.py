@@ -6,7 +6,8 @@ SCOPES = [
     'https://www.googleapis.com/auth/admin.directory.group',
     'https://www.googleapis.com/auth/admin.directory.group.member',
     'https://www.googleapis.com/auth/admin.directory.orgunit',
-    'https://www.googleapis.com/auth/apps.groups.settings'
+    'https://www.googleapis.com/auth/apps.groups.settings',
+    'https://www.googleapis.com/auth/calendar'
 ]
 if os.getenv('CLIENT_SECRETS'):
     CLIENT_SECRETS = os.getenv('CLIENT_SECRETS')
