@@ -13,7 +13,7 @@ command line tools for managing google apps users and groups
   3. Select "Installed application" and "Other" application type then click "Create Client ID"
   4. Click "Download JSON" and save downloaded JSON file to `private/client_secret.json`
   5. Go to "API" page in left side menu
-  6. Enable "Admin SDK" and "Groups Settings API"
+  6. Enable "Admin SDK", "Groups Settings API" and "Calendar API"
 4. Run `user.py --noauth_local_webserver list -d your.domain.name`
   1. Access displayed URL
   2. Approve request
@@ -177,4 +177,27 @@ positional arguments:
   {get,patch}           sub command
     get                 Retrieves group properties
     patch               Updates group properties
+```
+
+### Calendar ACL
+
+https://developers.google.com/google-apps/calendar/v3/reference/acl
+
+```
+$ ./calendar-acl.py -h
+usage: calendar-acl.py [-h] [--auth_host_name AUTH_HOST_NAME]
+                       [--noauth_local_webserver]
+                       [--auth_host_port [AUTH_HOST_PORT [AUTH_HOST_PORT ...]]]
+                       [--logging_level {DEBUG,INFO,WARNING,ERROR,CRITICAL}]
+                       {list,get,insert,patch,delete} ...
+
+positional arguments:
+  {list,get,insert,patch,delete}
+                        sub command
+    list                Returns the rules in the access control list for the
+                        calendar
+    get                 Returns an access control rule
+    insert              Creates an access control rule
+    patch               Updates an access control rule
+    delete              Deletes an access control rule
 ```
