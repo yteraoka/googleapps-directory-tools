@@ -33,7 +33,96 @@ def show_resource_list(resources, verbose):
             else:
                 print "%s %s %s" % (resource['email'], resource['role'], resource['type'])
 
-def main(argv):
+def list_member(sv, args):
+    members = []
+    pageToken = None
+    while True:
+        params = { 'groupKey': args.groupKey }
+        if args.role:
+            params['roles'] = args.role
+        if pageToken:
+            params['pageToken'] = pageToken
+        r = sv.list(**params).execute()
+
+        if args.json or args.jsonPretty:
+            if r.has_key('members'):
+                for member in r['members']:
+                    members.append(member)
+        else:
+            show_resource_list(r, args.verbose)
+
+        if r.has_key('nextPageToken'):
+            pageToken = r['nextPageToken']
+        else:
+            break
+
+    if args.json or args.jsonPretty:
+        if len(members) == 1:
+           if args.jsonPretty:
+               print to_pretty_json(members[0])
+           elif args.json:
+               print to_json(members[0])
+        else:
+           if args.jsonPretty:
+               print to_pretty_json(members)
+           elif args.json:
+               print to_json(members)
+
+def get_member(sv, args):
+    r = sv.get(groupKey=args.groupKey, memberKey=args.memberKey).execute()
+    if args.jsonPretty:
+        print to_pretty_json(r)
+    elif args.json:
+        print to_json(r)
+    else:
+        show_resource(r)
+
+def insert_member(sv, args):
+    body = { 'email': args.email, 'role': args.role }
+    r = sv.insert(groupKey=args.groupKey, body=body).execute()
+    if args.verbose:
+        if args.jsonPretty:
+            print to_pretty_json(r)
+        elif args.json:
+            print to_json(r)
+        else:
+            show_resource(r)
+
+def patch_member(sv, args):
+    body = {}
+    if args.role:
+        body['role'] = args.role
+    if len(body) > 0:
+        r = sv.patch(groupKey=args.groupKey, memberKey=args.memberKey, body=body).execute()
+        if args.verbose:
+            if args.jsonPretty:
+                print to_pretty_json(r)
+            elif args.json:
+                print to_json(r)
+            else:
+                show_resource(r)
+    else:
+        print "no update column"
+
+def delete_member(sv, args):
+    r = sv.delete(groupKey=args.groupKey, memberKey=args.memberKey).execute()
+
+def bulk_insert_member(sv, args):
+    f = open(args.jsonfile, 'r')
+    members = json.load(f, 'utf-8')
+    for member in members:
+        groupKey = member['groupKey']
+        del member['groupKey']
+        r = sv.insert(groupKey=groupKey, body=member).execute()
+        if args.verbose:
+            if args.jsonPretty:
+                print to_pretty_json(r)
+            elif args.json:
+                print to_json(r)
+            else:
+                show_resource(r)
+
+def main():
     parser = argparse.ArgumentParser(parents=[tools.argparser])
     subparsers = parser.add_subparsers(help='sub command')
 
@@ -46,6 +135,7 @@ def main(argv):
     parser_list.add_argument('-v', '--verbose', action='store_true', help='show all group data')
     parser_list.add_argument('--json', action='store_true', help='output json')
     parser_list.add_argument('--jsonPretty', action='store_true', help='output pretty json')
+    parser_list.set_defaults(func=list_member)
 
     #-------------------------------------------------------------------------
     # GET
@@ -55,6 +145,7 @@ def main(argv):
     parser_get.add_argument('memberKey', help='member\'s email address')
     parser_get.add_argument('--json', action='store_true', help='output json')
     parser_get.add_argument('--jsonPretty', action='store_true', help='output pretty json')
+    parser_get.set_defaults(func=get_member)
 
     #-------------------------------------------------------------------------
     # INSERT
@@ -68,6 +159,7 @@ def main(argv):
                                help='show all group data')
     parser_insert.add_argument('--json', action='store_true', help='output json')
     parser_insert.add_argument('--jsonPretty', action='store_true', help='output pretty json')
+    parser_insert.set_defaults(func=insert_member)
 
     #-------------------------------------------------------------------------
     # PATCH
@@ -79,16 +171,7 @@ def main(argv):
     parser_patch.add_argument('-v', '--verbose', action='store_true', help='show all group data')
     parser_patch.add_argument('--json', action='store_true', help='output json')
     parser_patch.add_argument('--jsonPretty', action='store_true', help='output pretty json')
-
-    #-------------------------------------------------------------------------
-    # UPDATE
-    #-------------------------------------------------------------------------
-    parser_update = subparsers.add_parser('update', help='Updates the membership of a user in the specified group')
-    parser_update.add_argument('groupKey', help='group\'s email address, alias or the unique id')
-    parser_update.add_argument('memberKey', help='member\'s email address')
-    parser_update.add_argument('--role', choices=['OWNER', 'MANAGER', 'MEMBER'], help='role')
-    parser_update.add_argument('-v', '--verbose', action='store_true',
-                               help='show all group data')
+    parser_patch.set_defaults(func=patch_member)
 
     #-------------------------------------------------------------------------
     # DELETE
@@ -96,8 +179,9 @@ def main(argv):
     parser_delete = subparsers.add_parser('delete', help='Removes a member from a group')
     parser_delete.add_argument('groupKey', help='group\'s email address, alias or the unique id')
     parser_delete.add_argument('memberKey', help='member\'s email address')
+    parser_delete.set_defaults(func=delete_member)
 
-    args = parser.parse_args(argv[1:])
+    args = parser.parse_args()
 
     # Set up a Flow object to be used if we need to authenticate.
     FLOW = flow_from_clientsecrets(CLIENT_SECRETS,
@@ -121,106 +205,8 @@ def main(argv):
 
     sv = service.members()
 
-    command = argv[1]
-
-    if command == "list":
-        members = []
-        pageToken = None
-        while True:
-            params = { 'groupKey': args.groupKey }
-            if args.role:
-                params['roles'] = args.role
-            if pageToken:
-                params['pageToken'] = pageToken
-            r = sv.list(**params).execute()
-
-            if args.json or args.jsonPretty:
-                if r.has_key('members'):
-                    for member in r['members']:
-                        members.append(member)
-            else:
-                show_resource_list(r, args.verbose)
-
-            if r.has_key('nextPageToken'):
-                pageToken = r['nextPageToken']
-            else:
-                break
-
-        if args.json or args.jsonPretty:
-            if len(members) == 1:
-               if args.jsonPretty:
-                   print to_pretty_json(members[0])
-               elif args.json:
-                   print to_json(members[0])
-            else:
-               if args.jsonPretty:
-                   print to_pretty_json(members)
-               elif args.json:
-                   print to_json(members)
-    elif command == "get":
-        r = sv.get(groupKey=args.groupKey, memberKey=args.memberKey).execute()
-        if args.jsonPretty:
-            print to_pretty_json(r)
-        elif args.json:
-            print to_json(r)
-        else:
-            show_resource(r)
-    elif command == "insert":
-        body = { 'email': args.email, 'role': args.role }
-        r = sv.insert(groupKey=args.groupKey, body=body).execute()
-        if args.verbose:
-            if args.jsonPretty:
-                print to_pretty_json(r)
-            elif args.json:
-                print to_json(r)
-            else:
-                show_resource(r)
-    elif command == "patch":
-        body = {}
-        if args.role:
-            body['role'] = args.role
-        if len(body) > 0:
-            r = sv.patch(groupKey=args.groupKey, memberKey=args.memberKey, body=body).execute()
-            if args.verbose:
-                if args.jsonPretty:
-                    print to_pretty_json(r)
-                elif args.json:
-                    print to_json(r)
-                else:
-                    show_resource(r)
-    elif command == "update":
-        body = {}
-        if args.role:
-            body['role'] = args.role
-        if len(body) > 0:
-            r = sv.update(groupKey=args.groupKey, memberKey=args.memberKey, body=body).execute()
-            if args.verbose:
-                if args.jsonPretty:
-                    print to_pretty_json(r)
-                elif args.json:
-                    print to_json(r)
-                else:
-                    show_resource(r)
-        else:
-            print "no update column"
-            return
-    elif command == "delete":
-        r = sv.delete(groupKey=args.groupKey, memberKey=args.memberKey).execute()
-    elif command == 'bulkinsert':
-        f = open(args.jsonfile, 'r')
-        members = json.load(f, 'utf-8')
-        for member in members:
-            groupKey = member['groupKey']
-            del member['groupKey']
-            r = sv.insert(groupKey=groupKey, body=member).execute()
-            if args.verbose:
-                if args.jsonPretty:
-                    print to_pretty_json(r)
-                elif args.json:
-                    print to_json(r)
-                else:
-                    show_resource(r)
+    args.func(sv, args)
 
 
 if __name__ == '__main__':
-    main(sys.argv)
+    main()

@@ -28,8 +28,30 @@ def show_resource_list(resources, verbose):
             else:
                 print "%s %s" % (resource['primaryEmail'], resource['alias'])
 
+def list_alias(sv, args):
+    r = sv.aliases().list(groupKey=args.groupKey).execute()
+    if args.jsonPretty:
+        print to_pretty_json(r)
+    elif args.json:
+        print to_json(r)
+    else:
+        show_resource_list(r, args.verbose)
 
-def main(argv):
+def insert_alias(sv, args):
+    body = { 'alias': args.alias }
+    r = sv.aliases().insert(groupKey=args.groupKey, body=body).execute()
+    if args.verbose:
+        if args.jsonPretty:
+            print to_pretty_json(r)
+        elif args.json:
+            print to_json(r)
+        else:
+            show_resource(r)
+
+def delete_alias(sv, args):
+    r = sv.aliases().delete(groupKey=args.groupKey, alias=args.alias).execute()
+
+def main():
     parser = argparse.ArgumentParser(parents=[tools.argparser])
     subparsers = parser.add_subparsers(help='sub command')
 
@@ -41,6 +63,7 @@ def main(argv):
     parser_list.add_argument('-v', '--verbose', action='store_true', help='show group all alias data')
     parser_list.add_argument('--json', action='store_true', help='output in JSON')
     parser_list.add_argument('--jsonPretty', action='store_true', help='output in pretty JSON')
+    parser_list.set_defaults(func=list_alias)
 
     #-------------------------------------------------------------------------
     # INSERT
@@ -51,6 +74,7 @@ def main(argv):
     parser_insert.add_argument('-v', '--verbose', action='store_true', help='show created alias data')
     parser_insert.add_argument('--json', action='store_true', help='output in JSON')
     parser_insert.add_argument('--jsonPretty', action='store_true', help='output in pretty JSON')
+    parser_insert.set_defaults(func=insert_alias)
 
     #-------------------------------------------------------------------------
     # DELETE
@@ -58,8 +82,9 @@ def main(argv):
     parser_delete = subparsers.add_parser('delete', help='Removes an alias')
     parser_delete.add_argument('groupKey', help='group email address, aliase or unique id')
     parser_delete.add_argument('alias', help='alias email address')
+    parser_delete.set_defaults(func=delete_alias)
 
-    args = parser.parse_args(argv[1:])
+    args = parser.parse_args()
     
     FLOW = flow_from_clientsecrets(CLIENT_SECRETS,
                                    scope=SCOPES,
@@ -82,32 +107,8 @@ def main(argv):
 
     sv = service.groups()
 
-    command = argv[1]
-
-    if command == 'list':
-        r = sv.aliases().list(groupKey=args.groupKey).execute()
-        if args.jsonPretty:
-            print to_pretty_json(r)
-        elif args.json:
-            print to_json(r)
-        else:
-            show_resource_list(r, args.verbose)
-    elif command == 'insert':
-        body = { 'alias': args.alias }
-        r = sv.aliases().insert(groupKey=args.groupKey, body=body).execute()
-        if args.verbose:
-            if args.jsonPretty:
-                print to_pretty_json(r)
-            elif args.json:
-                print to_json(r)
-            else:
-                show_resource(r)
-    elif command == 'delete':
-        r = sv.aliases().delete(groupKey=args.groupKey, alias=args.alias).execute()
-    else:
-        print "unknown command '%s'" % command
-        return
+    args.func(sv, args)
 
 
 if __name__ == '__main__':
-    main(sys.argv)
+    main()

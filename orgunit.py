@@ -31,7 +31,74 @@ def show_resource_list(resources, verbose):
             else:
                 print resource['orgUnitPath']
 
-def main(argv):
+def list_orgunit(sv, args):
+    params = {}
+    params['customerId'] = args.customerId
+    if args.orgUnitPath:
+        params['orgUnitPath'] = args.orgUnitPath.decode('utf-8')
+    if args.type:
+        params['type'] = args.type
+    r = sv.list(**params).execute()
+    if args.jsonPretty:
+        print to_pretty_json(r['organizationUnits'])
+    elif args.json:
+        print to_json(r['organizationUnits'])
+    else:
+        show_resource_list(r, args.verbose)
+
+def get_orgunit(sv, args):
+    r = sv.get(customerId=args.customerId,
+               orgUnitPath=args.orgUnitPath).execute()
+    if args.jsonPretty:
+        print to_pretty_json(r)
+    elif args.json:
+        print to_json(r)
+    else:
+        show_resource(r)
+
+def insert_orgunit(sv, args):
+    body = { 'name': args.name,
+             'parentOrgUnitPath': args.parentOrgUnitPath }
+    if args.description:
+        body['description'] = args.description
+    if args.blockInheritance:
+        body['blockInheritance'] = True if args.blockInheritance == 'true' else False
+    r = sv.insert(customerId=args.customerId, body=body).execute()
+    if args.verbose:
+        if args.jsonPretty:
+            print to_pretty_json(r)
+        elif args.json:
+            print to_json(r)
+        else:
+            show_resource(r)
+
+def patch_orgunit(sv, args):
+    body = {}
+    if args.name:
+        body['name'] = args.name
+    if args.description:
+        body['description'] = args.description
+    if args.parentOrgUnitPath:
+        body['parentOrgUnitPath'] = args.parentOrgUnitPath
+    if args.blockInheritance:
+      body['blockInheritance'] = True if args.blockInheritance == 'true' else False
+    if len(body) > 0:
+        r = sv.patch(customerId=args.customerId,
+                     orgUnitPath=args.orgUnitPath,
+                     body=body).execute()
+        if args.verbose:
+            if args.jsonPretty:
+                print to_pretty_json(r)
+            elif args.json:
+                print to_json(r)
+            else:
+                show_resource(r)
+
+def delete_orgunit(sv, args):
+    r = sv.delete(customerId=args.customerId,
+                  orgUnitPath=args.orgUnitPath).execute()
+
+def main():
     parser = argparse.ArgumentParser(parents=[tools.argparser])
     subparsers = parser.add_subparsers(help='sub command')
 
@@ -47,6 +114,7 @@ def main(argv):
                              help='show organization unit data')
     parser_list.add_argument('--json', action='store_true', help='output in JSON')
     parser_list.add_argument('--jsonPretty', action='store_true', help='output in pretty JSON')
+    parser_list.set_defaults(func=list_orgunit)
 
     #-------------------------------------------------------------------------
     # GET
@@ -56,6 +124,7 @@ def main(argv):
     parser_get.add_argument('orgUnitPath', help='full path of the organization unit')
     parser_get.add_argument('--json', action='store_true', help='output in JSON')
     parser_get.add_argument('--jsonPretty', action='store_true', help='output in pretty JSON')
+    parser_get.set_defaults(func=get_orgunit)
 
     #-------------------------------------------------------------------------
     # INSERT
@@ -69,6 +138,7 @@ def main(argv):
     parser_insert.add_argument('-v', '--verbose', action='store_true', help='show all group data')
     parser_insert.add_argument('--json', action='store_true', help='output in JSON')
     parser_insert.add_argument('--jsonPretty', action='store_true', help='output in pretty JSON')
+    parser_insert.set_defaults(func=insert_orgunit)
 
     #-------------------------------------------------------------------------
     # PATCH
@@ -84,6 +154,7 @@ def main(argv):
     parser_patch.add_argument('-v', '--verbose', action='store_true', help='show all group data')
     parser_patch.add_argument('--json', action='store_true', help='output in JSON')
     parser_patch.add_argument('--jsonPretty', action='store_true', help='output in pretty JSON')
+    parser_patch.set_defaults(func=patch_orgunit)
 
     #-------------------------------------------------------------------------
     # DELETE
@@ -91,8 +162,9 @@ def main(argv):
     parser_delete = subparsers.add_parser('delete', help='Removes an organization unit')
     parser_delete.add_argument('customerId')
     parser_delete.add_argument('orgUnitPath', help='full path of the organization unit')
+    parser_delete.set_defaults(func=delete_orgunit)
 
-    args = parser.parse_args(argv[1:])
+    args = parser.parse_args()
 
     # Set up a Flow object to be used if we need to authenticate.
     FLOW = flow_from_clientsecrets(CLIENT_SECRETS,
@@ -116,71 +188,8 @@ def main(argv):
 
     sv = service.orgunits()
 
-    command = argv[1]
-
-    if command == "list":
-        params = {}
-        params['customerId'] = args.customerId
-        if args.orgUnitPath:
-            params['orgUnitPath'] = args.orgUnitPath.decode('utf-8')
-        if args.type:
-            params['type'] = args.type
-        r = sv.list(**params).execute()
-        if args.jsonPretty:
-            print to_pretty_json(r['organizationUnits'])
-        elif args.json:
-            print to_json(r['organizationUnits'])
-        else:
-            show_resource_list(r, args.verbose)
-    elif command == "get":
-        r = sv.get(customerId=args.customerId,
-                   orgUnitPath=args.orgUnitPath).execute()
-        if args.jsonPretty:
-            print to_pretty_json(r)
-        elif args.json:
-            print to_json(r)
-        else:
-            show_resource(r)
-    elif command == "insert":
-        body = { 'name': args.name,
-                 'parentOrgUnitPath': args.parentOrgUnitPath }
-        if args.description:
-            body['description'] = args.description
-        if args.blockInheritance:
-            body['blockInheritance'] = True if args.blockInheritance == 'true' else False
-        r = sv.insert(customerId=args.customerId, body=body).execute()
-        if args.verbose:
-            if args.jsonPretty:
-                print to_pretty_json(r)
-            elif args.json:
-                print to_json(r)
-            else:
-                show_resource(r)
-    elif command == "patch":
-        body = {}
-        if args.name:
-            body['name'] = args.name
-        if args.description:
-            body['description'] = args.description
-        if args.parentOrgUnitPath:
-            body['parentOrgUnitPath'] = args.parentOrgUnitPath
-        if args.blockInheritance:
-          body['blockInheritance'] = True if args.blockInheritance == 'true' else False
-        if len(body) > 0:
-            r = sv.patch(customerId=args.customerId,
-                         orgUnitPath=args.orgUnitPath,
-                         body=body).execute()
-            if args.verbose:
-                if args.jsonPretty:
-                    print to_pretty_json(r)
-                elif args.json:
-                    print to_json(r)
-                else:
-                    show_resource(r)
-    elif command == "delete":
-        r = sv.delete(customerId=args.customerId,
-                      orgUnitPath=args.orgUnitPath).execute()
+    args.func(sv, args)
 
 
 if __name__ == '__main__':
-    main(sys.argv)
+    main()

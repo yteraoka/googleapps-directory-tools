@@ -45,8 +45,75 @@ def show_resource(resource):
     print "whoCanViewGroup:             %s" % resource['whoCanViewGroup']
     print "whoCanViewMembership:        %s" % resource['whoCanViewMembership']
 
+def get_setting(sv, args):
+    r = sv.get(groupUniqueId=args.groupUniqueId).execute()
+    if args.jsonPretty:
+        print to_pretty_json(r)
+    elif args.json:
+        print to_json(r)
+    else:
+        show_resource(r)
 
-def main(argv):
+def patch_setting(sv, args):
+    body = {}
+    if args.whoCanInvite:
+        body['whoCanInvite'] = args.whoCanInvite
+    if args.whoCanJoin:
+        body['whoCanJoin'] = args.whoCanJoin
+    if args.whoCanPostMessage:
+        body['whoCanPostMessage'] = args.whoCanPostMessage
+    if args.whoCanViewGroup:
+        body['whoCanViewGroup'] = args.whoCanViewGroup
+    if args.whoCanViewMembership:
+        body['whoCanViewMembership'] = args.whoCanViewMembership
+    if args.messageModerationLevel:
+        body['messageModerationLevel'] = args.messageModerationLevel
+    if args.spamModerationLevel:
+        body['spamModerationLevel'] = args.spamModerationLevel
+    if args.whoCanLeaveGroup:
+        body['whoCanLeaveGroup'] = args.whoCanLeaveGroup
+    if args.whoCanContactOwner:
+        body['whoCanContactOwner'] = args.whoCanContactOwner
+    if args.messageDisplayFont:
+        body['messageDisplayFont'] = args.messageDisplayFont
+    if args.replyTo:
+        body['replyTo'] = args.replyTo
+    if args.membersCanPostAsTheGroup:
+        body['membersCanPostAsTheGroup'] = args.membersCanPostAsTheGroup
+    if args.includeInGlobalAddressList:
+        body['includeInGlobalAddressList'] = args.includeInGlobalAddressList
+    if args.customReplyTo:
+        body['customReplyTo'] = args.customReplyTo
+    if args.sendMessageDenyNotification:
+        body['sendMessageDenyNotification'] = args.sendMessageDenyNotification
+    if args.defaultMessageDenyNotificationText:
+        body['defaultMessageDenyNotificationText'] = args.defaultMessageDenyNotificationText
+    if args.showInGroupDirectory:
+        body['showInGroupDirectory'] = args.showInGroupDirectory
+    if args.allowGoogleCommunication:
+        body['allowGoogleCommunication'] = args.allowGoogleCommunication
+    if args.allowExternalMembers:
+        body['allowExternalMembers'] = args.allowExternalMembers
+    if args.allowWebPosting:
+        body['allowWebPosting'] = args.allowWebPosting
+    if args.primaryLanguage:
+        body['primaryLanguage'] = args.primaryLanguage
+    if args.maxMessageBytes:
+        body['maxMessageBytes'] = args.maxMessageBytes
+    if args.isArchived:
+        body['isArchived'] = args.isArchived
+    if args.archiveOnly:
+        body['archiveOnly'] = args.archiveOnly
+    if len(body) > 0:
+        r = sv.update(groupUniqueId=args.groupUniqueId, body=body).execute()
+        if args.jsonPretty:
+            print to_pretty_json(r)
+        elif args.json:
+            print to_json(r)
+        else:
+            show_resource(r)
+
+def main():
     parser = argparse.ArgumentParser(parents=[tools.argparser])
     subparsers = parser.add_subparsers(help='sub command')
 
@@ -57,6 +124,7 @@ def main(argv):
     parser_get.add_argument('groupUniqueId', help='group email address')
     parser_get.add_argument('--json', action='store_true', help='output in JSON')
     parser_get.add_argument('--jsonPretty', action='store_true', help='output in pretty JSON')
+    parser_get.set_defaults(func=get_setting)
 
     #-------------------------------------------------------------------------
     # PATCH
@@ -127,8 +195,9 @@ def main(argv):
     parser_patch.add_argument('--archiveOnly', choices=['true', 'false'])
     parser_patch.add_argument('--json', action='store_true', help='output in JSON')
     parser_patch.add_argument('--jsonPretty', action='store_true', help='output in pretty JSON')
+    parser_patch.set_defaults(func=patch_setting)
 
-    args = parser.parse_args(argv[1:])
+    args = parser.parse_args()
 
     # Set up a Flow object to be used if we need to authenticate.
     FLOW = flow_from_clientsecrets(CLIENT_SECRETS,
@@ -152,77 +221,8 @@ def main(argv):
 
     sv = service.groups()
 
-    command = argv[1]
+    args.func(sv, args)
 
-    if command == "get":
-        r = sv.get(groupUniqueId=args.groupUniqueId).execute()
-        if args.jsonPretty:
-            print to_pretty_json(r)
-        elif args.json:
-            print to_json(r)
-        else:
-            show_resource(r)
-    elif command == "patch":
-        body = {}
-        if args.whoCanInvite:
-            body['whoCanInvite'] = args.whoCanInvite
-        if args.whoCanJoin:
-            body['whoCanJoin'] = args.whoCanJoin
-        if args.whoCanPostMessage:
-            body['whoCanPostMessage'] = args.whoCanPostMessage
-        if args.whoCanViewGroup:
-            body['whoCanViewGroup'] = args.whoCanViewGroup
-        if args.whoCanViewMembership:
-            body['whoCanViewMembership'] = args.whoCanViewMembership
-        if args.messageModerationLevel:
-            body['messageModerationLevel'] = args.messageModerationLevel
-        if args.spamModerationLevel:
-            body['spamModerationLevel'] = args.spamModerationLevel
-        if args.whoCanLeaveGroup:
-            body['whoCanLeaveGroup'] = args.whoCanLeaveGroup
-        if args.whoCanContactOwner:
-            body['whoCanContactOwner'] = args.whoCanContactOwner
-        if args.messageDisplayFont:
-            body['messageDisplayFont'] = args.messageDisplayFont
-        if args.replyTo:
-            body['replyTo'] = args.replyTo
-        if args.membersCanPostAsTheGroup:
-            body['membersCanPostAsTheGroup'] = args.membersCanPostAsTheGroup
-        if args.includeInGlobalAddressList:
-            body['includeInGlobalAddressList'] = args.includeInGlobalAddressList
-        if args.customReplyTo:
-            body['customReplyTo'] = args.customReplyTo
-        if args.sendMessageDenyNotification:
-            body['sendMessageDenyNotification'] = args.sendMessageDenyNotification
-        if args.defaultMessageDenyNotificationText:
-            body['defaultMessageDenyNotificationText'] = args.defaultMessageDenyNotificationText
-        if args.showInGroupDirectory:
-            body['showInGroupDirectory'] = args.showInGroupDirectory
-        if args.allowGoogleCommunication:
-            body['allowGoogleCommunication'] = args.allowGoogleCommunication
-        if args.allowExternalMembers:
-            body['allowExternalMembers'] = args.allowExternalMembers
-        if args.allowWebPosting:
-            body['allowWebPosting'] = args.allowWebPosting
-        if args.primaryLanguage:
-            body['primaryLanguage'] = args.primaryLanguage
-        if args.maxMessageBytes:
-            body['maxMessageBytes'] = args.maxMessageBytes
-        if args.isArchived:
-            body['isArchived'] = args.isArchived
-        if args.archiveOnly:
-            body['archiveOnly'] = args.archiveOnly
-        if len(body) > 0:
-            r = sv.update(groupUniqueId=args.groupUniqueId, body=body).execute()
-            if args.jsonPretty:
-                print to_pretty_json(r)
-            elif args.json:
-                print to_json(r)
-            else:
-                show_resource(r)
-        else:
-            print "no update column"
-            return
 
 if __name__ == '__main__':
-    main(sys.argv)
+    main()

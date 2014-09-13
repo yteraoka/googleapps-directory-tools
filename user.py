@@ -66,8 +66,142 @@ def show_resource_list(resources, verbose):
                                        resource['name']['familyName'],
                                        resource['name']['givenName'])
 
+def list_user(sv, args):
+    users = []
+    pageToken = None
+    while True:
+        params = {}
+        if args.domain:
+            params['domain'] = args.domain
+        if args.customer:
+            params['customer'] = args.customer
+        if args.reverse:
+            params['sortOrder'] = 'DESCENDING'
+        if args.showDeleted:
+            params['showDeleted'] = 'true'
+        if args.orderBy:
+            params['orderBy'] = args.orderBy
+        if args.query:
+            params['query'] = args.query.decode('utf-8')
+        if args.maxResults:
+            params['maxResults'] = args.maxResults
+        if pageToken:
+            params['pageToken'] = pageToken
 
-def main(argv):
+        if not params.has_key('domain') and not params.has_key('customer'):
+            print "Either the customer or the domain parameter must be provided"
+            sys.exit(1)
+
+        r = sv.list(**params).execute()
+
+        if r.has_key('users'):
+            if args.jsonPretty or args.json:
+                for user in r['users']:
+                    users.append(user)
+            else:
+                show_resource_list(r['users'], args.verbose)
+        if r.has_key('nextPageToken'):
+            pageToken = r['nextPageToken']
+        else:
+            break
+
+    if args.jsonPretty:
+        if len(users) == 1:
+            print to_pretty_json(users[0])
+        else:
+            print to_pretty_json(users)
+    elif args.json:
+        if len(users) == 1:
+            print to_json(users[0])
+        else:
+            print to_json(users)
+
+def get_user(sv, args):
+    r = sv.get(userKey=args.userKey).execute()
+    if args.jsonPretty:
+        print to_pretty_json(r)
+    elif args.json:
+        print to_json(r)
+    else:
+        show_resource(r)
+
+def insert_user(sv, args):
+    body = { 'name': { 'familyName': args.familyName.decode('utf-8'),
+                       'givenName': args.givenName.decode('utf-8') },
+             'password': args.password,
+             'primaryEmail': args.primaryEmail }
+    if args.changePasswordAtNextLogin:
+        body['changePasswordAtNextLogin'] = True if args.changePasswordAtNextLogin == 'true' else False
+    if args.suspended:
+        body['suspended'] = True if args.suspended == 'true' else False
+    if args.orgUnitPath:
+        body['orgUnitPath'] = args.orgUnitPath.decode('utf-8')
+    r = sv.insert(body=body).execute()
+    if args.verbose:
+        if args.jsonPretty:
+            print to_pretty_json(r)
+        elif args.json:
+            print to_json(r)
+        else:
+            show_resource(r)
+
+def patch_user(sv, args):
+    body = {}
+    if args.familyName or args.givenName:
+        body['name'] = {}
+    if args.familyName:
+        body['name']['familyName'] = args.familyName.decode('utf-8')
+    if args.givenName:
+        body['name']['givenName'] = args.givenName.decode('utf-8')
+    if args.orgUnitPath:
+        body['orgUnitPath'] = args.orgUnitPath.decode('utf-8')
+    if args.suspended:
+        body['suspended'] = True if args.suspended == 'true' else False
+    if args.changePasswordAtNextLogin:
+        body['changePasswordAtNextLogin'] = True if args.changePasswordAtNextLogin == 'true' else False
+    if args.password:
+        body['password'] = args.password
+    if args.primaryEmail:
+        body['primaryEmail'] = args.primaryEmail
+    if len(body):
+        r = sv.patch(userKey=args.userKey, body=body).execute()
+        if args.verbose:
+            if args.jsonPretty:
+                print to_pretty_json(r)
+            elif args.json:
+                print to_json(r)
+            else:
+                show_resource(r)
+    else:
+        print 'no update column'
+
+def delete_user(sv, args):
+    r = sv.delete(userKey=args.userKey).execute()
+
+def undelete_user(sv, args):
+    body = { 'orgUnitPath': args.orgUnitPath.decode('utf-8') }
+    r = sv.undelete(userKey=args.userKey, body=body).execute()
+
+def setadmin_user(sv, args):
+    r = sv.makeAdmin(userKey=args.userKey, body={ 'status': True }).execute()
+
+def unsetadmin_user(sv, args):
+    r = sv.makeAdmin(userKey=args.userKey, body={ 'status': False }).execute()
+
+def bulk_insert_user(sv, args):
+    f = open(args.jsonfile, 'r')
+    users = json.load(f, 'utf-8')
+    for user in users:
+        r = sv.insert(body=user).execute()
+        if args.verbose:
+            if args.jsonPretty:
+                print to_pretty_json(r)
+            elif args.json:
+                print to_json(r)
+            else:
+                show_resource(r)
+
+def main():
     parser = argparse.ArgumentParser(parents=[tools.argparser])
     subparsers = parser.add_subparsers(help='sub command')
 
@@ -86,6 +220,7 @@ def main(argv):
     parser_list.add_argument('-q', '--query', help='search query')
     parser_list.add_argument('-r', '--reverse', action='store_true', help='DESCENDING sort')
     parser_list.add_argument('--showDeleted', action='store_true', help='show deleted user only')
+    parser_list.set_defaults(func=list_user)
 
     #-------------------------------------------------------------------------
     # GET
@@ -94,6 +229,7 @@ def main(argv):
     parser_get.add_argument('userKey', help='email address')
     parser_get.add_argument('--json', action='store_true', help='output in JSON')
     parser_get.add_argument('--jsonPretty', action='store_true', help='output in pretty JSON')
+    parser_get.set_defaults(func=get_user)
 
     #-------------------------------------------------------------------------
     # INSERT
@@ -111,6 +247,7 @@ def main(argv):
     parser_insert.add_argument('-v', '--verbose', action='store_true', help='show created user data')
     parser_insert.add_argument('--json', action='store_true', help='output in JSON')
     parser_insert.add_argument('--jsonPretty', action='store_true', help='output in pretty JSON')
+    parser_insert.set_defaults(func=insert_user)
 
     #-------------------------------------------------------------------------
     # PATCH
@@ -129,24 +266,28 @@ def main(argv):
     parser_patch.add_argument('-v', '--verbose', action='store_true', help='show updated user data')
     parser_patch.add_argument('--json', action='store_true', help='output in JSON')
     parser_patch.add_argument('--jsonPretty', action='store_true', help='output in pretty JSON')
+    parser_patch.set_defaults(func=patch_user)
 
     #-------------------------------------------------------------------------
     # DELETE
     #-------------------------------------------------------------------------
     parser_delete = subparsers.add_parser('delete', help='Deletes a user')
     parser_delete.add_argument('userKey')
+    parser_delete.set_defaults(func=delete_user)
 
     #-------------------------------------------------------------------------
     # SETADMIN
     #-------------------------------------------------------------------------
     parser_setadmin = subparsers.add_parser('setadmin', help='Makes a user a super administrator')
     parser_setadmin.add_argument('userKey')
+    parser_setadmin.set_defaults(func=setadmin_user)
 
     #-------------------------------------------------------------------------
     # UNSETADMIN
     #-------------------------------------------------------------------------
     parser_unsetadmin = subparsers.add_parser('unsetadmin', help='Makes a user a normal user')
     parser_unsetadmin.add_argument('userKey')
+    parser_unsetadmin.set_defaults(func=unsetadmin_user)
 
     #-------------------------------------------------------------------------
     # BULK INSERT
@@ -156,8 +297,9 @@ def main(argv):
     parser_bi.add_argument('-v', '--verbose', action='store_true', help='show created user data')
     parser_bi.add_argument('--json', action='store_true', help='output in JSON')
     parser_bi.add_argument('--jsonPretty', action='store_true', help='output in pretty JSON')
+    parser_bi.set_defaults(func=bulk_insert_user)
 
-    args = parser.parse_args(argv[1:])
+    args = parser.parse_args()
     
     FLOW = flow_from_clientsecrets(CLIENT_SECRETS,
                                    scope=SCOPES,
@@ -180,140 +322,7 @@ def main(argv):
 
     sv = service.users()
 
-    command = argv[1]
-
-    if command == 'list':
-        users = []
-        pageToken = None
-        while True:
-            params = {}
-            if args.domain:
-                params['domain'] = args.domain
-            if args.customer:
-                params['customer'] = args.customer
-            if args.reverse:
-                params['sortOrder'] = 'DESCENDING'
-            if args.showDeleted:
-                params['showDeleted'] = 'true'
-            if args.orderBy:
-                params['orderBy'] = args.orderBy
-            if args.query:
-                params['query'] = args.query.decode('utf-8')
-            if args.maxResults:
-                params['maxResults'] = args.maxResults
-            if pageToken:
-                params['pageToken'] = pageToken
-
-            if not params.has_key('domain') and not params.has_key('customer'):
-                print "Either the customer or the domain parameter must be provided"
-                sys.exit(1)
-
-            r = sv.list(**params).execute()
-
-            if r.has_key('users'):
-                if args.jsonPretty or args.json:
-                    for user in r['users']:
-                        users.append(user)
-                else:
-                    show_resource_list(r['users'], args.verbose)
-            if r.has_key('nextPageToken'):
-                pageToken = r['nextPageToken']
-            else:
-                break
-
-        if args.jsonPretty:
-            if len(users) == 1:
-                print to_pretty_json(users[0])
-            else:
-                print to_pretty_json(users)
-        elif args.json:
-            if len(users) == 1:
-                print to_json(users[0])
-            else:
-                print to_json(users)
-
-    elif command == 'get':
-        r = sv.get(userKey=args.userKey).execute()
-        if args.jsonPretty:
-            print to_pretty_json(r)
-        elif args.json:
-            print to_json(r)
-        else:
-            show_resource(r)
-    elif command == 'insert':
-        body = { 'name': { 'familyName': args.familyName.decode('utf-8'),
-                           'givenName': args.givenName.decode('utf-8') },
-                 'password': args.password,
-                 'primaryEmail': args.primaryEmail }
-        if args.changePasswordAtNextLogin:
-            body['changePasswordAtNextLogin'] = True if args.changePasswordAtNextLogin == 'true' else False
-        if args.suspended:
-            body['suspended'] = True if args.suspended == 'true' else False
-        if args.orgUnitPath:
-            body['orgUnitPath'] = args.orgUnitPath.decode('utf-8')
-        r = sv.insert(body=body).execute()
-        if args.verbose:
-            if args.jsonPretty:
-                print to_pretty_json(r)
-            elif args.json:
-                print to_json(r)
-            else:
-                show_resource(r)
-    elif command == 'patch':
-        body = {}
-        if args.familyName or args.givenName:
-            body['name'] = {}
-        if args.familyName:
-            body['name']['familyName'] = args.familyName.decode('utf-8')
-        if args.givenName:
-            body['name']['givenName'] = args.givenName.decode('utf-8')
-        if args.orgUnitPath:
-            body['orgUnitPath'] = args.orgUnitPath.decode('utf-8')
-        if args.suspended:
-            body['suspended'] = True if args.suspended == 'true' else False
-        if args.changePasswordAtNextLogin:
-            body['changePasswordAtNextLogin'] = True if args.changePasswordAtNextLogin == 'true' else False
-        if args.password:
-            body['password'] = args.password
-        if args.primaryEmail:
-            body['primaryEmail'] = args.primaryEmail
-        if len(body):
-            r = sv.patch(userKey=args.userKey, body=body).execute()
-            if args.verbose:
-                if args.jsonPretty:
-                    print to_pretty_json(r)
-                elif args.json:
-                    print to_json(r)
-                else:
-                    show_resource(r)
-        else:
-            print 'no update column'
-            return
-    elif command == 'delete':
-        r = sv.delete(userKey=args.userKey).execute()
-    elif command == 'setadmin':
-        r = sv.makeAdmin(userKey=args.userKey, body={ 'status': True }).execute()
-    elif command == 'unsetadmin':
-        r = sv.makeAdmin(userKey=args.userKey, body={ 'status': False }).execute()
-    elif command == 'undelete':
-        body = { 'orgUnitPath': args.orgUnitPath.decode('utf-8') }
-        r = sv.undelete(userKey=args.userKey, body=body).execute()
-    elif command == 'bulkinsert':
-        f = open(args.jsonfile, 'r')
-        users = json.load(f, 'utf-8')
-        for user in users:
-            r = sv.insert(body=user).execute()
-            if args.verbose:
-                if args.jsonPretty:
-                    print to_pretty_json(r)
-                elif args.json:
-                    print to_json(r)
-                else:
-                    show_resource(r)
-    else:
-        print "unknown command '%s'" % command
-        return
-
+    args.func(sv, args)
 
 if __name__ == '__main__':
-    main(sys.argv)
+    main()

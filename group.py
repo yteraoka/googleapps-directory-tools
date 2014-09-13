@@ -35,7 +35,98 @@ def show_resource_list(resources, verbose):
             else:
                 print resource['email']
 
-def main(argv):
+def list_group(sv, args):
+    groups = []
+    pageToken = None
+    while True:
+        params = { 'domain': args.domain }
+        if pageToken:
+             params['pageToken'] = pageToken
+        r = sv.list(**params).execute()
+
+        if args.jsonPretty or args.json:
+            if r.has_key('groups'):
+                for group in r['groups']:
+                    groups.append(group)
+        else:
+            show_resource_list(r, args.verbose)
+
+        if r.has_key('nextPageToken'):
+            pageToken = r['nextPageToken']
+        else:
+            break
+
+    if args.jsonPretty:
+        if len(groups) == 1:
+            print to_pretty_json(groups[0])
+        else:
+            print to_pretty_json(groups)
+    elif args.json:
+        if len(groups) == 1:
+            print to_json(groups[0])
+        else:
+            print to_json(groups)
+
+def get_group(sv, args):
+    r = sv.get(groupKey=args.groupKey).execute()
+    if args.jsonPretty:
+        print to_pretty_json(r)
+    elif args.json:
+        print to_json(r)
+    else:
+        show_resource(r)
+
+def insert_group(sv, args):
+    body = {"email": args.email}
+    if args.name:
+        body['name'] = args.name.decode('utf-8')
+    if args.description:
+        body['description'] = args.description.decode('utf-8')
+    r = sv.insert(body=body).execute()
+    if args.verbose:
+        if args.jsonPretty:
+            print to_pretty_json(r)
+        elif args.json:
+            print to_json(r)
+        else:
+            show_resource(r)
+
+def patch_group(sv, args):
+    body = {}
+    if args.email:
+        body['email'] = args.email
+    if args.name:
+        body['name'] = args.name.decode('utf-8')
+    if args.description:
+        body['description'] = args.description.decode('utf-8')
+    if len(body) > 0:
+        r = sv.update(groupKey=args.groupKey, body=body).execute()
+        if args.jsonPretty:
+            print to_pretty_json(r)
+        elif args.json:
+            print to_json(r)
+        else:
+            show_resource(r)
+    else:
+        print "no update column"
+
+def delete_group(sv, args):
+    r = sv.delete(groupKey=args.groupKey).execute()
+
+def bulk_insert_group(sv, args):
+    f = open(args.jsonfile, 'r')
+    groups = json.load(f, 'utf-8')
+    for group in groups:
+        r = sv.insert(body=group).execute()
+        if args.verbose:
+            if args.jsonPretty:
+                print to_pretty_json(r)
+            elif args.json:
+                print to_json(r)
+            else:
+                show_resource(r)
+
+def main():
     parser = argparse.ArgumentParser(parents=[tools.argparser])
     subparsers = parser.add_subparsers(help='sub command')
 
@@ -48,6 +139,7 @@ def main(argv):
     parser_list.add_argument('-v', '--verbose', action='store_true', help='show all group data')
     parser_list.add_argument('--json', action='store_true', help='output in JSON')
     parser_list.add_argument('--jsonPretty', action='store_true', help='output in pretty JSON')
+    parser_list.set_defaults(func=list_group)
 
     #-------------------------------------------------------------------------
     # GET
@@ -56,6 +148,7 @@ def main(argv):
     parser_get.add_argument('groupKey', help='group\'s email address, alias or the unique id')
     parser_get.add_argument('--json', action='store_true', help='output in JSON')
     parser_get.add_argument('--jsonPretty', action='store_true', help='output in pretty JSON')
+    parser_get.set_defaults(func=get_group)
 
     #-------------------------------------------------------------------------
     # INSERT
@@ -67,6 +160,7 @@ def main(argv):
     parser_insert.add_argument('-v', '--verbose', action='store_true', help='show inserted group data')
     parser_insert.add_argument('--json', action='store_true', help='output in JSON')
     parser_insert.add_argument('--jsonPretty', action='store_true', help='output in pretty JSON')
+    parser_insert.set_defaults(func=insert_group)
 
     #-------------------------------------------------------------------------
     # PATCH
@@ -78,12 +172,14 @@ def main(argv):
     parser_patch.add_argument('-e', '--email', help='new group mail address')
     parser_patch.add_argument('--json', action='store_true', help='output in JSON')
     parser_patch.add_argument('--jsonPretty', action='store_true', help='output in pretty JSON')
+    parser_patch.set_defaults(func=patch_group)
 
     #-------------------------------------------------------------------------
     # DELETE
     #-------------------------------------------------------------------------
     parser_delete = subparsers.add_parser('delete', help='Deletes a group')
     parser_delete.add_argument('groupKey', help='group\'s email address, alias or the unique id')
+    parser_delete.set_defaults(func=delete_group)
 
     #-------------------------------------------------------------------------
     # BULKINSERT
@@ -93,8 +189,9 @@ def main(argv):
     parser_bi.add_argument('-v', '--verbose', action='store_true', help='show inserted group data')
     parser_bi.add_argument('--json', action='store_true', help='output in JSON')
     parser_bi.add_argument('--jsonPretty', action='store_true', help='output in pretty JSON')
+    parser_bi.set_defaults(func=bulk_insert_group)
 
-    args = parser.parse_args(argv[1:])
+    args = parser.parse_args()
 
     # Set up a Flow object to be used if we need to authenticate.
     FLOW = flow_from_clientsecrets(CLIENT_SECRETS,
@@ -118,96 +215,8 @@ def main(argv):
 
     sv = service.groups()
 
-    command = argv[1]
-
-    if command == "list":
-        groups = []
-        pageToken = None
-        while True:
-            params = { 'domain': args.domain }
-            if pageToken:
-                 params['pageToken'] = pageToken
-            r = sv.list(**params).execute()
-
-            if args.jsonPretty or args.json:
-                if r.has_key('groups'):
-                    for group in r['groups']:
-                        groups.append(group)
-            else:
-                show_resource_list(r, args.verbose)
-
-            if r.has_key('nextPageToken'):
-                pageToken = r['nextPageToken']
-            else:
-                break
-
-        if args.jsonPretty:
-            if len(groups) == 1:
-                print to_pretty_json(groups[0])
-            else:
-                print to_pretty_json(groups)
-        elif args.json:
-            if len(groups) == 1:
-                print to_json(groups[0])
-            else:
-                print to_json(groups)
-
-    elif command == "get":
-        r = sv.get(groupKey=args.groupKey).execute()
-        if args.jsonPretty:
-            print to_pretty_json(r)
-        elif args.json:
-            print to_json(r)
-        else:
-            show_resource(r)
-    elif command == "insert":
-        body = {"email": args.email}
-        if args.name:
-            body['name'] = args.name.decode('utf-8')
-        if args.description:
-            body['description'] = args.description.decode('utf-8')
-        r = sv.insert(body=body).execute()
-        if args.verbose:
-            if args.jsonPretty:
-                print to_pretty_json(r)
-            elif args.json:
-                print to_json(r)
-            else:
-                show_resource(r)
-    elif command == "patch":
-        body = {}
-        if args.email:
-            body['email'] = args.email
-        if args.name:
-            body['name'] = args.name.decode('utf-8')
-        if args.description:
-            body['description'] = args.description.decode('utf-8')
-        if len(body) > 0:
-            r = sv.update(groupKey=args.groupKey, body=body).execute()
-            if args.jsonPretty:
-                print to_pretty_json(r)
-            elif args.json:
-                print to_json(r)
-            else:
-                show_resource(r)
-        else:
-            print "no update column"
-            return
-    elif command == "delete":
-        r = sv.delete(groupKey=args.groupKey).execute()
-    elif command == 'bulkinsert':
-        f = open(args.jsonfile, 'r')
-        groups = json.load(f, 'utf-8')
-        for group in groups:
-            r = sv.insert(body=group).execute()
-            if args.verbose:
-                if args.jsonPretty:
-                    print to_pretty_json(r)
-                elif args.json:
-                    print to_json(r)
-                else:
-                    show_resource(r)
+    args.func(sv, args)
 
 
 if __name__ == '__main__':
-    main(sys.argv)
+    main()
