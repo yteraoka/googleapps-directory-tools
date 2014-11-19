@@ -3,6 +3,7 @@
 
 import os
 import sys
+import codecs
 from apiclient.discovery import build
 import httplib2
 from oauth2client.client import flow_from_clientsecrets
@@ -219,4 +220,5 @@ def main():
 
 
 if __name__ == '__main__':
+    sys.stdout = codecs.getwriter('utf_8')(sys.stdout)
     main()

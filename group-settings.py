@@ -3,6 +3,7 @@
 
 import os
 import sys
+import codecs
 import pprint
 from apiclient.discovery import build
 import httplib2
@@ -225,4 +226,5 @@ def main():
 
 
 if __name__ == '__main__':
+    sys.stdout = codecs.getwriter('utf_8')(sys.stdout)
     main()
