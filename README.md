@@ -201,3 +201,28 @@ positional arguments:
     patch               Updates an access control rule
     delete              Deletes an access control rule
 ```
+
+### Export and Sync Group Setting
+
+* show GoogleApps group setting and member
+* export group setting to local YAML file
+* apply YAML config to GoogleApps
+* create CSV file for sateraito office SSO console
+* show difference between GoogleApps setting ans local YAML file
+
+```
+$ ./groupman.py -h
+usage: groupman.py [-h] [--dir DIR] [--encoding {utf-8,sjis}]
+                   {show,diff,export,apply,csv} targets [targets ...]
+
+positional arguments:
+  {show,diff,export,apply,csv}
+                        operationo
+  targets               domain or email list
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --dir DIR             local data directory
+  --encoding {utf-8,sjis}
+                        csv output encoding
+```
