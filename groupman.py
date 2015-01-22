@@ -220,9 +220,9 @@ class GaGroup(object):
             if len(only_cloud):
                 print "%s:" % key
                 for x in only_cloud:
-                    print colored("-  -%s (cloud)" % x, 'red')
+                    print colored("-  - %s (cloud)" % x, 'red')
                 for x in only_local:
-                    print colored("+  -%s (local)" % x, 'green')
+                    print colored("+  - %s (local)" % x, 'green')
 
     def apply(self, sv):
         if not self.local.has_key('name'):
