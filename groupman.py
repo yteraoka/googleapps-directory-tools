@@ -217,7 +217,7 @@ class GaGroup(object):
         for key in ['members', 'managers', 'owners']:
             only_cloud = [x for x in self.cloud[key] if x not in self.local[key]]
             only_local = [x for x in self.local[key] if x not in self.cloud[key]]
-            if len(only_cloud):
+            if len(only_cloud) or len(only_local):
                 print "%s:" % key
                 for x in only_cloud:
                     print colored("-  - %s (cloud)" % x, 'red')
