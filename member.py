@@ -6,6 +6,7 @@ import sys
 import codecs
 import pprint
 from apiclient.discovery import build
+from apiclient import errors
 import httplib2
 from oauth2client.client import flow_from_clientsecrets
 from oauth2client.file import Storage
@@ -114,14 +115,27 @@ def bulk_insert_member(sv, args):
     for member in members:
         groupKey = member['groupKey']
         del member['groupKey']
-        r = sv.insert(groupKey=groupKey, body=member).execute()
-        if args.verbose:
+        try:
+         r = sv.insert(groupKey=groupKey, body=member).execute()
+         if args.verbose:
             if args.jsonPretty:
                 print to_pretty_json(r)
             elif args.json:
                 print to_json(r)
             else:
                 show_resource(r)
+        except errors.HttpError, e:
+         error = json.loads(e.content)
+         code = error['error']['code']
+         reason = error['error']['errors'][0]['reason']
+         print "%s" %reason
+         if code == 409 and reason  == "duplicate":
+          print "%s already exist in group %s" %(member['email'], groupKey)
+         elif code == 403 and reason  == "forbidden":
+          print "%s could not be added into %s because %s" %(member['email'], groupKey, reason)
+         else:
+          print to_pretty_json(error)
+          raise
 
 def main():
     parser = argparse.ArgumentParser(parents=[tools.argparser])
@@ -181,6 +195,18 @@ def main():
     parser_delete.add_argument('groupKey', help='group\'s email address, alias or the unique id')
     parser_delete.add_argument('memberKey', help='member\'s email address')
     parser_delete.set_defaults(func=delete_member)
+    
+
+    #
+    # BULK insert
+    #
+    bulk_insert_member
+    parser_bi = subparsers.add_parser('bulkinsert', help='bulk insert')
+    parser_bi.add_argument('jsonfile')
+    parser_bi.add_argument('-v', '--verbose', action='store_true', help='show inserted group data')
+    parser_bi.add_argument('--json', action='store_true', help='output in JSON')
+    parser_bi.add_argument('--jsonPretty', action='store_true', help='output in pretty JSON')
+    parser_bi.set_defaults(func=bulk_insert_member)
 
     args = parser.parse_args()
 

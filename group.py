@@ -5,6 +5,7 @@ import os
 import sys
 import codecs
 from apiclient.discovery import build
+from apiclient import errors
 import httplib2
 from oauth2client.client import flow_from_clientsecrets
 from oauth2client.file import Storage
@@ -118,14 +119,26 @@ def bulk_insert_group(sv, args):
     f = open(args.jsonfile, 'r')
     groups = json.load(f, 'utf-8')
     for group in groups:
-        r = sv.insert(body=group).execute()
-        if args.verbose:
+      try:  
+       r = sv.insert(body=group).execute()
+       if args.verbose:
             if args.jsonPretty:
                 print to_pretty_json(r)
             elif args.json:
                 print to_json(r)
             else:
                 show_resource(r)
+      except errors.HttpError, e:
+         error = json.loads(e.content)
+         code = error['error']['code']
+         reason = error['error']['errors'][0]['reason']
+         if code == 403 and reason  == "forbidden":
+          print "%s could not be added because %s" %(group['email'], reason)
+         elif code == 409 and reason  == "duplicate":
+          print "%s already exists" %(group['email'])
+         else:
+          print to_pretty_json(error)
+          raise
 
 def main():
     parser = argparse.ArgumentParser(parents=[tools.argparser])
