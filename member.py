@@ -181,6 +181,18 @@ def main():
     parser_delete.add_argument('groupKey', help='group\'s email address, alias or the unique id')
     parser_delete.add_argument('memberKey', help='member\'s email address')
     parser_delete.set_defaults(func=delete_member)
+    
+
+    #
+    # BULK insert
+    #
+    bulk_insert_member
+    parser_bi = subparsers.add_parser('bulkinsert', help='bulk insert')
+    parser_bi.add_argument('jsonfile')
+    parser_bi.add_argument('-v', '--verbose', action='store_true', help='show inserted group data')
+    parser_bi.add_argument('--json', action='store_true', help='output in JSON')
+    parser_bi.add_argument('--jsonPretty', action='store_true', help='output in pretty JSON')
+    parser_bi.set_defaults(func=bulk_insert_member)
 
     args = parser.parse_args()
 
