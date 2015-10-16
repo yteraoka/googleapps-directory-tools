@@ -40,7 +40,10 @@ def list_group(sv, args):
     groups = []
     pageToken = None
     while True:
-        params = { 'domain': args.domain }
+        if args.domain.find('.') >= 0:
+            params = { 'domain': args.domain }
+        else:
+            params = { 'customer': args.domain }
         if pageToken:
              params['pageToken'] = pageToken
         r = sv.list(**params).execute()
@@ -135,7 +138,7 @@ def main():
     # LIST
     #-------------------------------------------------------------------------
     parser_list = subparsers.add_parser('list', help='Retrieves list of groups in a domain')
-    parser_list.add_argument('domain', help='domain name')
+    parser_list.add_argument('domain', help='domain name or customerId')
     parser_list.add_argument('--userKey', help='userKey query parameter returns all groups for which a user or group has a membership')
     parser_list.add_argument('-v', '--verbose', action='store_true', help='show all group data')
     parser_list.add_argument('--json', action='store_true', help='output in JSON')
