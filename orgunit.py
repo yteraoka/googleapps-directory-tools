@@ -1,15 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import os
 import sys
 import codecs
 import pprint
-from apiclient.discovery import build
-import httplib2
-from oauth2client.client import flow_from_clientsecrets
-from oauth2client.file import Storage
-from oauth2client import tools
 import argparse
 
 from const import *
@@ -39,7 +33,7 @@ def list_orgunit(sv, args):
         params['orgUnitPath'] = args.orgUnitPath.decode('utf-8')
     if args.type:
         params['type'] = args.type
-    r = sv.list(**params).execute()
+    status, r = execute_admin_api(sv.list(**params))
     if args.jsonPretty:
         print to_pretty_json(r['organizationUnits'])
     elif args.json:
@@ -48,8 +42,10 @@ def list_orgunit(sv, args):
         show_resource_list(r, args.verbose)
 
 def get_orgunit(sv, args):
-    r = sv.get(customerId=args.customerId,
-               orgUnitPath=args.orgUnitPath).execute()
+    status, r = execute_admin_api(sv.get(customerId=args.customerId, orgUnitPath=args.orgUnitPath))
+    if status == 404:
+        sys.stderr.write('%s does not exist\n' % args.orgUnitPath)
+        sys.exit(2)
     if args.jsonPretty:
         print to_pretty_json(r)
     elif args.json:
@@ -64,7 +60,7 @@ def insert_orgunit(sv, args):
         body['description'] = args.description
     if args.blockInheritance:
         body['blockInheritance'] = True if args.blockInheritance == 'true' else False
-    r = sv.insert(customerId=args.customerId, body=body).execute()
+    status, r = execute_admin_api(sv.insert(customerId=args.customerId, body=body))
     if args.verbose:
         if args.jsonPretty:
             print to_pretty_json(r)
@@ -84,9 +80,10 @@ def patch_orgunit(sv, args):
     if args.blockInheritance:
       body['blockInheritance'] = True if args.blockInheritance == 'true' else False
     if len(body) > 0:
-        r = sv.patch(customerId=args.customerId,
-                     orgUnitPath=args.orgUnitPath,
-                     body=body).execute()
+        status, r = execute_admin_api(sv.patch(customerId=args.customerId, orgUnitPath=args.orgUnitPath, body=body))
+        if status == 404:
+            sys.stderr.write('%s does not exist\n' % args.orgUnitPath)
+            sys.exit(2)
         if args.verbose:
             if args.jsonPretty:
                 print to_pretty_json(r)
@@ -96,8 +93,10 @@ def patch_orgunit(sv, args):
                 show_resource(r)
 
 def delete_orgunit(sv, args):
-    r = sv.delete(customerId=args.customerId,
-                  orgUnitPath=args.orgUnitPath).execute()
+    status, r = execute_admin_api(sv.delete(customerId=args.customerId, orgUnitPath=args.orgUnitPath))
+    if status == 404:
+        sys.stderr.write('%s does not exist\n' % args.orgUnitPath)
+        sys.exit(2)
 
 def main():
     parser = argparse.ArgumentParser(parents=[tools.argparser])
@@ -167,29 +166,9 @@ def main():
 
     args = parser.parse_args()
 
-    # Set up a Flow object to be used if we need to authenticate.
-    FLOW = flow_from_clientsecrets(CLIENT_SECRETS,
-                                   scope=SCOPES,
-                                   message=MISSING_CLIENT_SECRETS_MESSAGE)
+    service = get_directory_service(args)
 
-    storage = Storage(CREDENTIALS_PATH)
-    credentials = storage.get()
-
-    if credentials is None or credentials.invalid:
-        print 'invalid credentials'
-        # Save the credentials in storage to be used in subsequent runs.
-        credentials = tools.run_flow(FLOW, storage, args)
-
-    # Create an httplib2.Http object to handle our HTTP requests and authorize it
-    # with our good Credentials.
-    http = httplib2.Http()
-    http = credentials.authorize(http)
-
-    service = build('admin', 'directory_v1', http=http)
-
-    sv = service.orgunits()
-
-    args.func(sv, args)
+    args.func(service.orgunits(), args)
 
 
 if __name__ == '__main__':

@@ -1,15 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import os
 import sys
 import codecs
 import pprint
-from apiclient.discovery import build
-import httplib2
-from oauth2client.client import flow_from_clientsecrets
-from oauth2client.file import Storage
-from oauth2client import tools
 import argparse
 
 from const import *
@@ -30,7 +24,10 @@ def show_resource_list(resources, verbose):
                 print "%s %s" % (resource['primaryEmail'], resource['alias'])
 
 def list_alias(sv, args):
-    r = sv.aliases().list(groupKey=args.groupKey).execute()
+    status, r = execute_admin_api(sv.list(groupKey=args.groupKey))
+    if status == 404:
+        sys.stderr.write('%s does not exist\n' % args.groupKey)
+        sys.exit(2)
     if args.jsonPretty:
         print to_pretty_json(r)
     elif args.json:
@@ -40,7 +37,10 @@ def list_alias(sv, args):
 
 def insert_alias(sv, args):
     body = { 'alias': args.alias }
-    r = sv.aliases().insert(groupKey=args.groupKey, body=body).execute()
+    status, r = execute_admin_api(sv.insert(groupKey=args.groupKey, body=body))
+    if status == 404:
+        sys.stderr.write('%s does not exist\n' % args.groupKey)
+        sys.exit(2)
     if args.verbose:
         if args.jsonPretty:
             print to_pretty_json(r)
@@ -50,7 +50,7 @@ def insert_alias(sv, args):
             show_resource(r)
 
 def delete_alias(sv, args):
-    r = sv.aliases().delete(groupKey=args.groupKey, alias=args.alias).execute()
+    status, r = execute_admin_api(sv.delete(groupKey=args.groupKey, alias=args.alias))
 
 def main():
     parser = argparse.ArgumentParser(parents=[tools.argparser])
@@ -87,28 +87,9 @@ def main():
 
     args = parser.parse_args()
     
-    FLOW = flow_from_clientsecrets(CLIENT_SECRETS,
-                                   scope=SCOPES,
-                                   message=MISSING_CLIENT_SECRETS_MESSAGE)
+    service = get_directory_service(args)
 
-    storage = Storage(CREDENTIALS_PATH)
-    credentials = storage.get()
-
-    if credentials is None or credentials.invalid:
-        print 'invalid credentials'
-        # Save the credentials in storage to be used in subsequent runs.
-        credentials = tools.run_flow(FLOW, storage, args)
-
-    # Create an httplib2.Http object to handle our HTTP requests and authorize it
-    # with our good Credentials.
-    http = httplib2.Http()
-    http = credentials.authorize(http)
-
-    service = build('admin', 'directory_v1', http=http)
-
-    sv = service.groups()
-
-    args.func(sv, args)
+    args.func(service.groups().aliases(), args)
 
 
 if __name__ == '__main__':

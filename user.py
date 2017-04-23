@@ -1,17 +1,10 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import os
 import sys
 import codecs
 import pprint
-from apiclient.discovery import build
-import httplib2
-from oauth2client.client import flow_from_clientsecrets
-from oauth2client.file import Storage
-from oauth2client import tools
 import argparse
-import simplejson as json
 
 from const import *
 from utils import *
@@ -70,30 +63,31 @@ def show_resource_list(resources, verbose):
 def list_user(sv, args):
     users = []
     pageToken = None
+
+    params = {}
+    if args.domain:
+        params['domain'] = args.domain
+    if args.customer:
+        params['customer'] = args.customer
+    if args.reverse:
+        params['sortOrder'] = 'DESCENDING'
+    if args.showDeleted:
+        params['showDeleted'] = 'true'
+    if args.orderBy:
+        params['orderBy'] = args.orderBy
+    if args.query:
+        params['query'] = args.query.decode('utf-8')
+    if args.maxResults:
+        params['maxResults'] = args.maxResults
+
+    if not params.has_key('domain') and not params.has_key('customer'):
+        print "Either the customer or the domain parameter must be provided"
+        sys.exit(1)
+
     while True:
-        params = {}
-        if args.domain:
-            params['domain'] = args.domain
-        if args.customer:
-            params['customer'] = args.customer
-        if args.reverse:
-            params['sortOrder'] = 'DESCENDING'
-        if args.showDeleted:
-            params['showDeleted'] = 'true'
-        if args.orderBy:
-            params['orderBy'] = args.orderBy
-        if args.query:
-            params['query'] = args.query.decode('utf-8')
-        if args.maxResults:
-            params['maxResults'] = args.maxResults
         if pageToken:
             params['pageToken'] = pageToken
-
-        if not params.has_key('domain') and not params.has_key('customer'):
-            print "Either the customer or the domain parameter must be provided"
-            sys.exit(1)
-
-        r = sv.list(**params).execute()
+        status, r = execute_admin_api(sv.list(**params))
 
         if r.has_key('users'):
             if args.jsonPretty or args.json:
@@ -118,7 +112,10 @@ def list_user(sv, args):
             print to_json(users)
 
 def get_user(sv, args):
-    r = sv.get(userKey=args.userKey).execute()
+    status, r = execute_admin_api(sv.get(userKey=args.userKey))
+    if status == 404:
+        sys.stderr.write('%s does not exist\n' % args.userKey)
+        sys.exit(2)
     if args.jsonPretty:
         print to_pretty_json(r)
     elif args.json:
@@ -137,7 +134,9 @@ def insert_user(sv, args):
         body['suspended'] = True if args.suspended == 'true' else False
     if args.orgUnitPath:
         body['orgUnitPath'] = args.orgUnitPath.decode('utf-8')
-    r = sv.insert(body=body).execute()
+
+    status, r = execute_admin_api(sv.insert(body=body))
+
     if args.verbose:
         if args.jsonPretty:
             print to_pretty_json(r)
@@ -165,7 +164,10 @@ def patch_user(sv, args):
     if args.primaryEmail:
         body['primaryEmail'] = args.primaryEmail
     if len(body):
-        r = sv.patch(userKey=args.userKey, body=body).execute()
+        status, r = execute_admin_api(sv.patch(userKey=args.userKey, body=body))
+        if status == 404:
+            sys.stderr.write('%s does not exist\n' % args.userKey)
+            sys.exit(2)
         if args.verbose:
             if args.jsonPretty:
                 print to_pretty_json(r)
@@ -177,23 +179,35 @@ def patch_user(sv, args):
         print 'no update column'
 
 def delete_user(sv, args):
-    r = sv.delete(userKey=args.userKey).execute()
+    status, r = execute_admin_api(sv.delete(userKey=args.userKey))
+    if status == 404:
+        sys.stderr.write('%s does not exist\n' % args.userKey)
+        sys.exit(2)
 
 def undelete_user(sv, args):
     body = { 'orgUnitPath': args.orgUnitPath.decode('utf-8') }
-    r = sv.undelete(userKey=args.userKey, body=body).execute()
+    status, r = execute_admin_api(sv.undelete(userKey=args.userKey, body=body))
+    if status == 404:
+        sys.stderr.write('%s does not exist\n' % args.userKey)
+        sys.exit(2)
 
 def setadmin_user(sv, args):
-    r = sv.makeAdmin(userKey=args.userKey, body={ 'status': True }).execute()
+    status, r = execute_admin_api(sv.makeAdmin(userKey=args.userKey, body={ 'status': True }))
+    if status == 404:
+        sys.stderr.write('%s does not exist\n' % args.userKey)
+        sys.exit(2)
 
 def unsetadmin_user(sv, args):
-    r = sv.makeAdmin(userKey=args.userKey, body={ 'status': False }).execute()
+    status, r = execute_admin_api(sv.makeAdmin(userKey=args.userKey, body={ 'status': False }))
+    if status == 404:
+        sys.stderr.write('%s does not exist\n' % args.userKey)
+        sys.exit(2)
 
 def bulk_insert_user(sv, args):
     f = open(args.jsonfile, 'r')
     users = json.load(f, 'utf-8')
     for user in users:
-        r = sv.insert(body=user).execute()
+        status, r = execute_admin_api(sv.insert(body=user))
         if args.verbose:
             if args.jsonPretty:
                 print to_pretty_json(r)
@@ -302,28 +316,9 @@ def main():
 
     args = parser.parse_args()
     
-    FLOW = flow_from_clientsecrets(CLIENT_SECRETS,
-                                   scope=SCOPES,
-                                   message=MISSING_CLIENT_SECRETS_MESSAGE)
+    service = get_directory_service(args)
 
-    storage = Storage(CREDENTIALS_PATH)
-    credentials = storage.get()
-
-    if credentials is None or credentials.invalid:
-        print 'invalid credentials'
-        # Save the credentials in storage to be used in subsequent runs.
-        credentials = tools.run_flow(FLOW, storage, args)
-
-    # Create an httplib2.Http object to handle our HTTP requests and authorize it
-    # with our good Credentials.
-    http = httplib2.Http()
-    http = credentials.authorize(http)
-
-    service = build('admin', 'directory_v1', http=http)
-
-    sv = service.users()
-
-    args.func(sv, args)
+    args.func(service.users(), args)
 
 if __name__ == '__main__':
     sys.stdout = codecs.getwriter('utf_8')(sys.stdout)
