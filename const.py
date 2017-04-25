@@ -1,4 +1,6 @@
 import os
+import httplib
+import httplib2
 
 SCOPES = [
     'https://www.googleapis.com/auth/admin.directory.user',
@@ -30,3 +32,20 @@ found at:
 with information from the APIs Console <https://code.google.com/apis/console>.
 
 """ % os.path.join(os.path.dirname(__file__), CLIENT_SECRETS)
+
+# Always retry when these exceptions are raised.
+RETRIABLE_EXCEPTIONS = (httplib2.HttpLib2Error, IOError, httplib.NotConnected,
+  httplib.IncompleteRead, httplib.ImproperConnectionState,
+  httplib.CannotSendRequest, httplib.CannotSendHeader,
+  httplib.ResponseNotReady, httplib.BadStatusLine)
+
+# Always retry when an apiclient.errors.HttpError with one of these status
+# codes is raised.
+RETRIABLE_STATUS_CODES = [500, 502, 503, 504]
+
+# Explicitly tell the underlying HTTP transport library not to retry, since
+# we are handling retry logic ourselves.
+httplib2.RETRIES = 1
+
+# Maximum number of times to retry before giving up.
+MAX_RETRIES = 10

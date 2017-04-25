@@ -47,7 +47,10 @@ def show_resource(resource):
     print "whoCanViewMembership:        %s" % resource['whoCanViewMembership']
 
 def get_setting(sv, args):
-    r = sv.get(groupUniqueId=args.groupUniqueId).execute()
+    status, r = execute_admin_api(sv.get(groupUniqueId=args.groupUniqueId))
+    if status == 404:
+        sys.stderr.write('%s does not exist\n' % args.groupUniqueId)
+        sys.exit(2)
     if args.jsonPretty:
         print to_pretty_json(r)
     elif args.json:
@@ -106,7 +109,10 @@ def patch_setting(sv, args):
     if args.archiveOnly:
         body['archiveOnly'] = args.archiveOnly
     if len(body) > 0:
-        r = sv.update(groupUniqueId=args.groupUniqueId, body=body).execute()
+        status, r = execute_admin_api(sv.update(groupUniqueId=args.groupUniqueId, body=body))
+        if status == 404:
+            sys.stderr.write('%s does not exist\n' % args.groupUniqueId)
+            sys.exit(2)
         if args.jsonPretty:
             print to_pretty_json(r)
         elif args.json:
@@ -200,29 +206,9 @@ def main():
 
     args = parser.parse_args()
 
-    # Set up a Flow object to be used if we need to authenticate.
-    FLOW = flow_from_clientsecrets(CLIENT_SECRETS,
-                                   scope=SCOPES,
-                                   message=MISSING_CLIENT_SECRETS_MESSAGE)
+    service = get_groupsettings_service(args)
 
-    storage = Storage(CREDENTIALS_PATH)
-    credentials = storage.get()
-
-    if credentials is None or credentials.invalid:
-        print 'invalid credentials'
-        # Save the credentials in storage to be used in subsequent runs.
-        credentials = tools.run_flow(FLOW, storage, args)
-
-    # Create an httplib2.Http object to handle our HTTP requests and authorize it
-    # with our good Credentials.
-    http = httplib2.Http()
-    http = credentials.authorize(http)
-
-    service = build('groupssettings', 'v1', http=http)
-
-    sv = service.groups()
-
-    args.func(sv, args)
+    args.func(service.groups(), args)
 
 
 if __name__ == '__main__':

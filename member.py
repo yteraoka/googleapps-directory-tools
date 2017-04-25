@@ -1,18 +1,11 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import os
 import sys
 import codecs
 import pprint
-from apiclient.discovery import build
-from apiclient import errors
-import httplib2
-from oauth2client.client import flow_from_clientsecrets
-from oauth2client.file import Storage
-from oauth2client import tools
 import argparse
-import simplejson as json
+from apiclient.errors import HttpError
 
 from const import *
 from utils import *
@@ -38,13 +31,19 @@ def show_resource_list(resources, verbose):
 def list_member(sv, args):
     members = []
     pageToken = None
+
+    params = { 'groupKey': args.groupKey }
+    if args.role:
+        params['roles'] = args.role
+
     while True:
-        params = { 'groupKey': args.groupKey }
-        if args.role:
-            params['roles'] = args.role
         if pageToken:
             params['pageToken'] = pageToken
-        r = sv.list(**params).execute()
+
+        status, r = execute_admin_api(sv.list(**params))
+        if status == 404:
+            sys.stderr.write('%s does not exist\n' % args.groupKey)
+            sys.exit(2)
 
         if args.json or args.jsonPretty:
             if r.has_key('members'):
@@ -71,7 +70,10 @@ def list_member(sv, args):
                print to_json(members)
 
 def get_member(sv, args):
-    r = sv.get(groupKey=args.groupKey, memberKey=args.memberKey).execute()
+    status, r = execute_admin_api(sv.get(groupKey=args.groupKey, memberKey=args.memberKey))
+    if status == 404:
+        sys.stderr.write('%s does not exist\n' % args.groupKey)
+        sys.exit(2)
     if args.jsonPretty:
         print to_pretty_json(r)
     elif args.json:
@@ -81,7 +83,10 @@ def get_member(sv, args):
 
 def insert_member(sv, args):
     body = { 'email': args.email, 'role': args.role }
-    r = sv.insert(groupKey=args.groupKey, body=body).execute()
+    status, r = execute_admin_api(sv.insert(groupKey=args.groupKey, body=body))
+    if status == 404:
+        sys.stderr.write('%s does not exist\n' % args.groupKey)
+        sys.exit(2)
     if args.verbose:
         if args.jsonPretty:
             print to_pretty_json(r)
@@ -95,7 +100,10 @@ def patch_member(sv, args):
     if args.role:
         body['role'] = args.role
     if len(body) > 0:
-        r = sv.patch(groupKey=args.groupKey, memberKey=args.memberKey, body=body).execute()
+        status, r = execute_admin_api(sv.patch(groupKey=args.groupKey, memberKey=args.memberKey, body=body))
+        if status == 404:
+            sys.stderr.write('%s does not exist\n' % args.groupKey)
+            sys.exit(2)
         if args.verbose:
             if args.jsonPretty:
                 print to_pretty_json(r)
@@ -107,7 +115,10 @@ def patch_member(sv, args):
         print "no update column"
 
 def delete_member(sv, args):
-    r = sv.delete(groupKey=args.groupKey, memberKey=args.memberKey).execute()
+    status, r = execute_admin_api(sv.delete(groupKey=args.groupKey, memberKey=args.memberKey))
+    if status == 404:
+        sys.stderr.write('%s does not exist\n' % args.groupKey)
+        sys.exit(2)
 
 def bulk_insert_member(sv, args):
     f = open(args.jsonfile, 'r')
@@ -116,26 +127,26 @@ def bulk_insert_member(sv, args):
         groupKey = member['groupKey']
         del member['groupKey']
         try:
-         r = sv.insert(groupKey=groupKey, body=member).execute()
-         if args.verbose:
-            if args.jsonPretty:
-                print to_pretty_json(r)
-            elif args.json:
-                print to_json(r)
+            status, r = execute_admin_api(sv.insert(groupKey=args.groupKey, body=member))
+            if args.verbose:
+                if args.jsonPretty:
+                    print to_pretty_json(r)
+                elif args.json:
+                    print to_json(r)
+                else:
+                    show_resource(r)
+        except HttpError, e:
+            error = json.loads(e.content)
+            code = error['error']['code']
+            reason = error['error']['errors'][0]['reason']
+            print "%s" %reason
+            if code == 409 and reason  == "duplicate":
+                print "%s already exist in group %s" %(member['email'], groupKey)
+            elif code == 403 and reason  == "forbidden":
+                print "%s could not be added into %s because %s" %(member['email'], groupKey, reason)
             else:
-                show_resource(r)
-        except errors.HttpError, e:
-         error = json.loads(e.content)
-         code = error['error']['code']
-         reason = error['error']['errors'][0]['reason']
-         print "%s" %reason
-         if code == 409 and reason  == "duplicate":
-          print "%s already exist in group %s" %(member['email'], groupKey)
-         elif code == 403 and reason  == "forbidden":
-          print "%s could not be added into %s because %s" %(member['email'], groupKey, reason)
-         else:
-          print to_pretty_json(error)
-          raise
+                print to_pretty_json(error)
+                raise
 
 def main():
     parser = argparse.ArgumentParser(parents=[tools.argparser])
@@ -210,29 +221,9 @@ def main():
 
     args = parser.parse_args()
 
-    # Set up a Flow object to be used if we need to authenticate.
-    FLOW = flow_from_clientsecrets(CLIENT_SECRETS,
-                                   scope=SCOPES,
-                                   message=MISSING_CLIENT_SECRETS_MESSAGE)
+    service = get_directory_service(args)
 
-    storage = Storage(CREDENTIALS_PATH)
-    credentials = storage.get()
-
-    if credentials is None or credentials.invalid:
-        print 'invalid credentials'
-        # Save the credentials in storage to be used in subsequent runs.
-        credentials = tools.run_flow(FLOW, storage, args)
-
-    # Create an httplib2.Http object to handle our HTTP requests and authorize it
-    # with our good Credentials.
-    http = httplib2.Http()
-    http = credentials.authorize(http)
-
-    service = build('admin', 'directory_v1', http=http)
-
-    sv = service.members()
-
-    args.func(sv, args)
+    args.func(service.members(), args)
 
 
 if __name__ == '__main__':
