@@ -127,7 +127,7 @@ def bulk_insert_member(sv, args):
         groupKey = member['groupKey']
         del member['groupKey']
         try:
-            status, r = execute_admin_api(sv.insert(groupKey=args.groupKey, body=member))
+            status, r = execute_admin_api(sv.insert(groupKey=groupKey, body=member))
             if args.verbose:
                 if args.jsonPretty:
                     print to_pretty_json(r)
